@@ -39,7 +39,7 @@ options:
 ```
 
 ```sh
-python3 -m http.server 8000 --bind 0.0.0.0
+python3 server.py
 ```
 
 Open `http://localhost:8000/` or `http://<server-ip>:8000/` and select a run.

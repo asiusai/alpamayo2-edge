@@ -8,6 +8,7 @@
 *{box-sizing:border-box}body{margin:0}button,select,input{font:inherit}button,select{background:#20272d;color:inherit;border:1px solid var(--line);border-radius:6px;padding:8px 12px}button{cursor:pointer}button:hover{border-color:var(--cyan)}button:focus-visible,a:focus-visible,select:focus-visible{outline:2px solid var(--cyan)}a{color:var(--cyan)}header{height:64px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 24px}header strong{font-size:17px;font-weight:600;letter-spacing:.02em}header span{color:var(--muted);margin-left:14px}header a{text-decoration:none;font-size:13px}.layout{display:grid;grid-template-columns:250px 1fr;min-height:calc(100vh - 64px)}aside{border-right:1px solid var(--line);padding:20px 14px}aside h2{font-size:11px;letter-spacing:.12em;color:var(--muted);padding:0 10px;margin:0 0 14px;text-transform:uppercase}.run{display:block;width:100%;text-align:left;margin:6px 0;padding:12px;border-color:transparent;background:transparent}.run[aria-current=true]{background:#243334;border-color:#426768}.run strong{display:block;overflow-wrap:anywhere}.run small{display:block;color:var(--muted);margin-top:5px}main{padding:24px;min-width:0;max-width:1800px;width:100%;margin:auto}h1{font-size:24px;font-weight:600;margin:0 0 6px}h2{font-size:14px;font-weight:550;margin:0}.muted{color:var(--muted)}#notice{padding:12px 16px;margin:16px 0;border:1px solid var(--line);border-radius:8px;color:var(--muted)}#notice:empty{display:none}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:22px 0}.stat,.panel{background:#171c20;border:1px solid var(--line);border-radius:9px}.stat{padding:15px}.stat small{color:var(--muted);display:block;margin-bottom:7px}.stat b{font-size:22px;font-weight:500}.cameras{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.camera{position:relative;background:black;border:1px solid var(--line);border-radius:8px;overflow:hidden;aspect-ratio:16/9}.camera video{width:100%;height:100%;object-fit:contain}.camera span{position:absolute;top:8px;left:8px;background:#101316bb;padding:4px 7px;border-radius:4px;font-size:11px}.camera .missing{top:auto;bottom:10px;color:#aab2b8}.transport{display:flex;align-items:center;gap:12px;padding:15px 0;flex-wrap:wrap}.transport input{flex:1;min-width:120px;accent-color:var(--cyan)}#clock{font-variant-numeric:tabular-nums;color:var(--muted);min-width:112px}.panels{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:4px}.panel{padding:16px;min-width:0}.panel canvas{width:100%;display:block;margin-top:12px}.legend{font-size:11px;color:var(--muted);margin-top:8px;display:flex;gap:15px;flex-wrap:wrap}.legend i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px}.reasoning{white-space:pre-wrap;line-height:1.6;margin:14px 0 0;font-size:13px}.metrics{font-size:13px;color:var(--cyan);line-height:1.7;margin-top:12px}.wide{grid-column:1/-1}.panel-head{display:flex;justify-content:space-between;align-items:center;gap:12px}footer{padding:22px 0 0;font-size:11px;color:var(--muted)}#empty{padding:60px 0;text-align:center;color:var(--muted)}[hidden]{display:none!important}
 @media(max-width:1000px){.layout{grid-template-columns:190px 1fr}.cameras{grid-template-columns:repeat(2,1fr)}.stats{grid-template-columns:repeat(2,1fr)}.panels{grid-template-columns:1fr}.wide{grid-column:auto}}
 @media(max-width:650px){header{padding:0 16px}header span{display:none}.layout{display:block}aside{border-right:0;border-bottom:1px solid var(--line);padding:12px;max-height:180px;overflow:auto}aside h2{display:none}#runs{display:flex;gap:6px}.run{min-width:180px;width:auto}main{padding:18px 12px}.cameras{grid-template-columns:1fr 1fr}.stats{gap:8px;margin:16px 0}.stat{padding:12px}.stat b{font-size:19px}h1{font-size:20px}.transport{gap:8px}#window{max-width:150px}}
+.camera .overlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 </style>
 <header><div><strong>Alpamayo</strong><span>Model experiments</span></div><a id="permalink" href="index.html">Link to this view ↗</a></header>
 <div class="layout">
@@ -15,7 +16,7 @@
  <main>
   <h1 id="title">Runs</h1><div id="subtitle" class="muted">Select an output to inspect its predictions.</div>
   <div id="notice" role="status"></div>
-  <div id="empty">Run <code>python run.py</code> to create an output. Serve this folder with <code>python3 -m http.server 8000 --bind 0.0.0.0</code>.</div>
+   <div id="empty">Run <code>python run.py</code> to create an output. Start playback with <code>python3 server.py</code>.</div>
   <div id="viewer" hidden>
    <div class="stats">
     <div class="stat"><small>Warm median</small><b id="median">—</b></div>
@@ -44,7 +45,7 @@
 <script>
 'use strict';
 const $=id=>document.getElementById(id),fmt=(x,d=3)=>Number.isFinite(x)?x.toFixed(d):'—';
-let catalog=[],selected=null,results=[],manifest=null,summary={},videos=[],playing=false,time=0,duration=0,last=performance.now(),lastPrediction=-2,request=0,videoRequests=new AbortController();
+let catalog=[],selected=null,results=[],manifest=null,summary={},videos=[],playing=false,time=0,duration=0,last=performance.now(),lastPrediction=-2,request=0;
 const json=async(path,optional=false)=>{const r=await fetch(path,{cache:'no-store'});if(optional&&r.status===404)return null;if(!r.ok)throw Error(`${path}: HTTP ${r.status}`);return r.json()};
 function message(text){$('notice').textContent=text}
 function link(){const u=new URL(location.href);if(selected)u.searchParams.set('run',selected.id);u.searchParams.set('t',time.toFixed(2));history.replaceState(null,'',u);$('permalink').href=u.href}
@@ -68,8 +69,7 @@ function stats(){
 async function choose(id,t=null,navigate=true){
  const entry=catalog.find(r=>r.id===id);if(!entry){message('This run is not in outputs/index.json. Select an available output.');return}
  const ticket=++request;pause();if(navigate&&selected&&selected.id!==id)history.pushState(null,'',location.href);selected=entry;time=Math.max(0,Number.isFinite(t)?t:0);list();link();message('Loading run…');
-  videoRequests.abort();videoRequests=new AbortController();
-  videos.forEach(({video,objectURL})=>{video.removeAttribute('src');video.load();if(objectURL)URL.revokeObjectURL(objectURL)});videos=[];$('cameras').replaceChildren();
+  videos.forEach(({video})=>{video.removeAttribute('src');video.load()});videos=[];$('cameras').replaceChildren();
  try{
   const [data,route,report]=await Promise.all([json(entry.directory+'/predictions.json',true),entry.demo?json(entry.demo+'/route.json'):null,json(entry.directory+'/comparison.json',true)]);
   if(ticket!==request)return;
@@ -82,29 +82,23 @@ async function choose(id,t=null,navigate=true){
   for(const camera of route?.cameras??[]){
    const box=document.createElement('div'),video=document.createElement('video'),label=document.createElement('span'),missing=document.createElement('span');
    box.className='camera';label.textContent=camera.file.replace(/\.[^.]+$/,'').replaceAll('_',' ');missing.className='missing';missing.textContent='No frame';
-   video.muted=true;video.playsInline=true;video.preload='auto';video.onloadedmetadata=()=>sync(true);
+   video.muted=true;video.playsInline=true;video.preload='metadata';video.onloadedmetadata=()=>sync(true);video.onerror=()=>sync();
    box.append(video,label,missing);$('cameras').append(box);
    const feed={video,missing,camera,times:camera.timestamps_us.map(x=>x/1e6)};videos.push(feed);
-   loadVideo(feed,entry.demo+'/'+camera.file,videoRequests.signal);
+   if(camera.index===1){feed.overlay=document.createElement('canvas');feed.overlay.className='overlay';feed.overlay.width=camera.width;feed.overlay.height=camera.height;box.append(feed.overlay);if(!route.calibration?.baked_into_pixels)label.textContent+=' · overlay calibration unavailable'}
+   video.src='playback/'+entry.demo.split('/').at(-1)+'/'+camera.file;
   }
   stats();lastPrediction=-2;sync(true);drawPrediction();link();
   message(!results.length?'Waiting for the first prediction. This view updates automatically.':!route?'This older output has no saved demo path; video is unavailable.':!summary.complete?'Partial run. New predictions appear automatically.':'');
  }catch(e){if(ticket===request)message(e.message)}
 }
-async function loadVideo(feed,url,signal){
- try{
-  // Simple static servers ignore Range. A local blob makes their videos seekable.
-  const response=await fetch(url,{headers:{Range:'bytes=0-0'},signal});
-  if(!response.ok)throw Error(`HTTP ${response.status}`);
-  if(response.status===206){await response.body.cancel();if(signal.aborted)return;feed.video.src=url}
-  else{const blob=await response.blob();if(signal.aborted)return;feed.objectURL=URL.createObjectURL(blob);feed.video.src=feed.objectURL}
- }catch(e){if(!signal.aborted){feed.error=e.message;sync()}}
-}
 function sync(force=false){
- for(const {video,missing,camera,times,error} of videos){
-   if(!video.readyState||video.error){video.style.visibility='hidden';missing.hidden=false;missing.textContent=error||video.error?.message||'Loading video…';continue}
+ for(const {video,missing,camera,times} of videos){
+   if(!video.readyState||video.error){video.style.visibility='hidden';missing.hidden=false;missing.textContent=video.error?.message||'Loading video…';continue}
    missing.textContent='No frame';
-  const i=floor(times,time),valid=i>=0&&time-times[i]<=.15&&(!camera.valid_frames||camera.valid_frames[i]);
+   let i=floor(times,time);
+   if(i>=0&&camera.valid_frames&&!camera.valid_frames[i]&&camera.valid_frames[i+1]&&times[i+1]-times[i]<.005)i--;
+   const valid=i>=0&&time-times[i]<=.155&&(!camera.valid_frames||camera.valid_frames[i]);
   video.style.visibility=valid?'visible':'hidden';missing.hidden=valid;
   let target=camera.playback_times_s&&i>=0?camera.playback_times_s[i]+Math.max(0,time-times[i]):Math.max(0,time-times[0]);
   if(Number.isFinite(video.duration))target=Math.min(target,video.duration);
@@ -114,6 +108,34 @@ function sync(force=false){
  }
 }
 function go(t){time=Math.max(0,Math.min(duration,t));sync(true);lastPrediction=-2;drawPrediction();link()}
+function drawOverlay(){
+ const feed=videos.find(f=>f.overlay);if(!feed)return;
+ const {overlay,camera,video}=feed,ctx=overlay.getContext('2d');ctx.clearRect(0,0,overlay.width,overlay.height);
+ const calibration=manifest?.calibration,source=calibration?.source_geometry?.cameras?.[camera.index];
+ const r=results[floor(results.map(r=>r.time_us/1e6),time)],elapsed=r?time-r.time_us/1e6:Infinity;
+ if(!source||!calibration.baked_into_pixels||!r?.xyz||elapsed>6.4||video.style.visibility==='hidden')return;
+ const records=calibration.records??[],record=records[Math.max(0,floor(records.map(c=>c.time_us/1e6),time))],height=record?.height_m?.[0];
+ if(!Number.isFinite(height))return;
+ // Prepared front pixels already rotate into the vehicle frame: do not apply calibration twice.
+ const fov=calibration.target_horizontal_fov_degrees[camera.index]*Math.PI/180;
+ const fx=source.projection==='equidistant'?camera.width/fov:camera.width/(2*Math.tan(fov/2)),fy=fx*source.focal_pixels[1]/source.focal_pixels[0];
+ const recorded=[[0,0,0],...(r.recorded_xyz??[])],j=Math.min(Math.floor(elapsed*10),recorded.length-2),fraction=elapsed*10-j;
+ let origin=[0,0,0],yaw=0;
+ if(j>=0){const a=recorded[j],b=recorded[j+1];origin=a.map((v,k)=>v+(b[k]-v)*Math.min(1,fraction));if(Math.hypot(b[0]-a[0],b[1]-a[1])>.01)yaw=Math.atan2(b[1]-a[1],b[0]-a[0])}
+ const project=([x,y,z],offset=0)=>{
+  x-=origin[0];y-=origin[1];const forward=x*Math.cos(yaw)+y*Math.sin(yaw),left=-x*Math.sin(yaw)+y*Math.cos(yaw)+offset,down=height-z+origin[2];
+  if(forward<.5)return null;
+  const radius=Math.hypot(left,down),scale=source.projection==='equidistant'?Math.atan2(radius,forward)/(radius||1):1/forward;
+  return [(camera.width-1)/2-fx*left*scale,(camera.height-1)/2+fy*down*scale];
+ };
+ const path=(points,offset=0)=>points.map(p=>project(p,offset)).filter(Boolean);
+ const trace=points=>{ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(...p):ctx.moveTo(...p))};
+ const left=path(r.xyz,.8),right=path(r.xyz,-.8);trace([...left,...right.reverse()]);ctx.closePath();ctx.fillStyle='#72ded938';ctx.fill();
+ for(const [points,color,dashed] of [[r.xyz,'#72ded9',false],[r.stock?.xyz,'#f2b46e',true]]){
+  if(!points)continue;trace(path(points));ctx.strokeStyle=color;ctx.lineWidth=camera.width/250;ctx.setLineDash(dashed?[camera.width/100,camera.width/160]:[]);ctx.stroke();
+ }
+ ctx.setLineDash([]);
+}
 function drawPath(r){
  const ctx=$('trajectory').getContext('2d'),w=800,h=440;ctx.clearRect(0,0,w,h);
  const curves=[[r?.xyz,'#72ded9'],[r?.stock?.xyz,'#f2b46e'],[r?.recorded_xyz,'#929da5']].filter(([a])=>a?.length),points=curves.flatMap(([a])=>a);
@@ -147,7 +169,7 @@ $('seek').oninput=()=>go(Number($('seek').value));$('speed').onchange=()=>sync()
 $('latency').onclick=e=>{const offset=results.length>2?2:0,n=results.length-offset;if(!n)return;const box=e.currentTarget.getBoundingClientRect(),i=Math.max(0,Math.min(n-1,Math.round((e.clientX-box.left)/box.width*(n-1))));go(results[offset+i].time_us/1e6)};
 window.onpopstate=()=>{const u=new URL(location.href);if(u.searchParams.has('run'))choose(u.searchParams.get('run'),u.searchParams.has('t')?Number(u.searchParams.get('t')):null,false)};
 $('permalink').onclick=()=>link();
-function tick(now){if(playing){time=Math.min(duration,time+Math.min((now-last)/1000,.1)*Number($('speed').value));if(time>=duration)pause();sync()}last=now;$('seek').value=time;$('clock').textContent=`${time.toFixed(2)} / ${duration.toFixed(2)} s`;drawPrediction();requestAnimationFrame(tick)}
+function tick(now){if(playing){time=Math.min(duration,time+Math.min((now-last)/1000,.1)*Number($('speed').value));if(time>=duration)pause();sync()}last=now;$('seek').value=time;$('clock').textContent=`${time.toFixed(2)} / ${duration.toFixed(2)} s`;drawPrediction();drawOverlay();requestAnimationFrame(tick)}
 loadCatalog().catch(e=>message(e.message));requestAnimationFrame(tick);
 setInterval(async()=>{try{
  const id=selected?.id;await loadCatalog();if(!id||selected?.id!==id)return;
