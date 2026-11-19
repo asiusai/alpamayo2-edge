@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Alpamayo · Runs</title>
+<style>
+:root{color-scheme:dark;font:14px system-ui,sans-serif;background:#101316;color:#e6e9eb;--muted:#929da5;--line:#2a3137;--cyan:#72ded9;--orange:#f2b46e}
+*{box-sizing:border-box}body{margin:0}button,select,input{font:inherit}button,select{background:#20272d;color:inherit;border:1px solid var(--line);border-radius:6px;padding:8px 12px}button{cursor:pointer}button:hover{border-color:var(--cyan)}button:focus-visible,a:focus-visible,select:focus-visible{outline:2px solid var(--cyan)}a{color:var(--cyan)}header{height:64px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 24px}header strong{font-size:17px;font-weight:600;letter-spacing:.02em}header span{color:var(--muted);margin-left:14px}header a{text-decoration:none;font-size:13px}.layout{display:grid;grid-template-columns:250px 1fr;min-height:calc(100vh - 64px)}aside{border-right:1px solid var(--line);padding:20px 14px}aside h2{font-size:11px;letter-spacing:.12em;color:var(--muted);padding:0 10px;margin:0 0 14px;text-transform:uppercase}.run{display:block;width:100%;text-align:left;margin:6px 0;padding:12px;border-color:transparent;background:transparent}.run[aria-current=true]{background:#243334;border-color:#426768}.run strong{display:block;overflow-wrap:anywhere}.run small{display:block;color:var(--muted);margin-top:5px}main{padding:24px;min-width:0;max-width:1800px;width:100%;margin:auto}h1{font-size:24px;font-weight:600;margin:0 0 6px}h2{font-size:14px;font-weight:550;margin:0}.muted{color:var(--muted)}#notice{padding:12px 16px;margin:16px 0;border:1px solid var(--line);border-radius:8px;color:var(--muted)}#notice:empty{display:none}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:22px 0}.stat,.panel{background:#171c20;border:1px solid var(--line);border-radius:9px}.stat{padding:15px}.stat small{color:var(--muted);display:block;margin-bottom:7px}.stat b{font-size:22px;font-weight:500}.cameras{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.camera{position:relative;background:black;border:1px solid var(--line);border-radius:8px;overflow:hidden;aspect-ratio:16/9}.camera video{width:100%;height:100%;object-fit:contain}.camera span{position:absolute;top:8px;left:8px;background:#101316bb;padding:4px 7px;border-radius:4px;font-size:11px}.camera .missing{top:auto;bottom:10px;color:#aab2b8}.transport{display:flex;align-items:center;gap:12px;padding:15px 0;flex-wrap:wrap}.transport input{flex:1;min-width:120px;accent-color:var(--cyan)}#clock{font-variant-numeric:tabular-nums;color:var(--muted);min-width:112px}.panels{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:4px}.panel{padding:16px;min-width:0}.panel canvas{width:100%;display:block;margin-top:12px}.legend{font-size:11px;color:var(--muted);margin-top:8px;display:flex;gap:15px;flex-wrap:wrap}.legend i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px}.reasoning{white-space:pre-wrap;line-height:1.6;margin:14px 0 0;font-size:13px}.metrics{font-size:13px;color:var(--cyan);line-height:1.7;margin-top:12px}.wide{grid-column:1/-1}.panel-head{display:flex;justify-content:space-between;align-items:center;gap:12px}footer{padding:22px 0 0;font-size:11px;color:var(--muted)}#empty{padding:60px 0;text-align:center;color:var(--muted)}[hidden]{display:none!important}
+@media(max-width:1000px){.layout{grid-template-columns:190px 1fr}.cameras{grid-template-columns:repeat(2,1fr)}.stats{grid-template-columns:repeat(2,1fr)}.panels{grid-template-columns:1fr}.wide{grid-column:auto}}
+@media(max-width:650px){header{padding:0 16px}header span{display:none}.layout{display:block}aside{border-right:0;border-bottom:1px solid var(--line);padding:12px;max-height:180px;overflow:auto}aside h2{display:none}#runs{display:flex;gap:6px}.run{min-width:180px;width:auto}main{padding:18px 12px}.cameras{grid-template-columns:1fr 1fr}.stats{gap:8px;margin:16px 0}.stat{padding:12px}.stat b{font-size:19px}h1{font-size:20px}.transport{gap:8px}#window{max-width:150px}}
+</style>
+<header><div><strong>Alpamayo</strong><span>Model experiments</span></div><a id="permalink" href="index.html">Link to this view ↗</a></header>
+<div class="layout">
+ <aside><h2>Outputs</h2><nav id="runs" aria-label="Saved runs"></nav></aside>
+ <main>
+  <h1 id="title">Runs</h1><div id="subtitle" class="muted">Select an output to inspect its predictions.</div>
+  <div id="notice" role="status"></div>
+  <div id="empty">Run <code>python run.py</code> to create an output. Serve this folder with <code>python3 -m http.server 8000 --bind 0.0.0.0</code>.</div>
+  <div id="viewer" hidden>
+   <div class="stats">
+    <div class="stat"><small>Warm median</small><b id="median">—</b></div>
+    <div class="stat"><small>Warm p95</small><b id="p95">—</b></div>
+    <div class="stat"><small>Mean difference from stock</small><b id="ade">—</b></div>
+    <div class="stat"><small>Compared windows</small><b id="coverage">—</b></div>
+   </div>
+   <div id="cameras" class="cameras"></div>
+   <div class="transport">
+    <button id="play" aria-label="Play or pause">Play</button>
+    <input id="seek" aria-label="Route position" type="range" min="0" max="1" step=".01" value="0">
+    <span id="clock">0.00 / 0.00 s</span>
+    <select id="speed" aria-label="Playback speed"><option value=".5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select>
+    <select id="window" aria-label="Prediction window"></select>
+   </div>
+   <div class="panels">
+    <section class="panel"><h2>Trajectory · metres</h2><div class="legend"><span><i style="background:#72ded9"></i>Candidate</span><span><i style="background:#f2b46e"></i>Stock Alpamayo</span><span><i style="background:#929da5"></i>Recorded motion</span></div><canvas id="trajectory" width="800" height="440"></canvas></section>
+    <section class="panel"><div class="panel-head"><h2>Prediction</h2><span id="prediction-time" class="muted"></span></div><div id="metrics" class="metrics"></div><div id="reasoning" class="reasoning"></div><details id="stock-reasoning" style="margin-top:16px"><summary class="muted">Stock reasoning</summary><div id="stock-text" class="reasoning"></div></details></section>
+    <section class="panel"><h2>Normalized actions</h2><div class="legend"><span><i style="background:#72ded9"></i>Acceleration</span><span><i style="background:#c6a1ed"></i>Curvature</span><span>Dashed = stock</span></div><canvas id="actions" width="800" height="200"></canvas></section>
+    <section class="panel"><h2>Warm prediction latency · seconds</h2><div class="legend">First two predictions excluded. Click the chart to inspect a window.</div><canvas id="latency" width="800" height="200"></canvas></section>
+   </div>
+   <footer>Offline replay using recorded vehicle history. Stock agreement measures implementation differences, not driving safety.</footer>
+  </div>
+ </main>
+</div>
+<script>
+'use strict';
+const $=id=>document.getElementById(id),fmt=(x,d=3)=>Number.isFinite(x)?x.toFixed(d):'—';
+let catalog=[],selected=null,results=[],manifest=null,summary={},videos=[],playing=false,time=0,duration=0,last=performance.now(),lastPrediction=-2,request=0,videoRequests=new AbortController();
+const json=async(path,optional=false)=>{const r=await fetch(path,{cache:'no-store'});if(optional&&r.status===404)return null;if(!r.ok)throw Error(`${path}: HTTP ${r.status}`);return r.json()};
+function message(text){$('notice').textContent=text}
+function link(){const u=new URL(location.href);if(selected)u.searchParams.set('run',selected.id);u.searchParams.set('t',time.toFixed(2));history.replaceState(null,'',u);$('permalink').href=u.href}
+function pause(){playing=false;$('play').textContent='Play';videos.forEach(({video})=>video.pause())}
+function floor(a,value){let lo=0,hi=a.length;while(lo<hi){const m=(lo+hi)>>1;if(a[m]<=value)lo=m+1;else hi=m}return lo-1}
+function list(){
+ $('runs').replaceChildren();
+ for(const r of catalog){const b=document.createElement('button'),name=document.createElement('strong'),info=document.createElement('small');b.className='run';b.setAttribute('aria-current',String(selected?.id===r.id));name.textContent=r.id;info.textContent=`${r.summary.predictions??0} predictions · ${r.summary.complete?'finished':'partial'}`;b.append(name,info);b.onclick=()=>choose(r.id);$('runs').append(b)}
+}
+async function loadCatalog(){
+ const data=await json('outputs/index.json',true);catalog=data?.runs??[];list();
+ if(!selected&&catalog.length){const url=new URL(location.href),id=url.searchParams.get('run')??catalog[0].id;await choose(id,url.searchParams.has('t')?Number(url.searchParams.get('t')):null)}
+}
+function stats(){
+ $('median').textContent=fmt(summary.warm_median_seconds)+' s';$('p95').textContent=fmt(summary.warm_p95_seconds)+' s';$('ade').textContent=fmt(summary.ade_m)+' m';
+ $('coverage').textContent=selected.setup.stock_reference?'Reference run':`${summary.compared??0} / ${results.length}`;
+ $('subtitle').textContent=`${selected.model??'Model unknown'} · ${selected.setup.camera_count??'?'} cameras · ${selected.setup.euler_steps??'?'} Euler steps · ${results.length} predictions`;
+ $('window').replaceChildren();results.forEach((r,i)=>{const o=document.createElement('option');o.value=i;o.textContent=`${(r.time_us/1e6).toFixed(2)}s · ${fmt(r.seconds)}s`;$('window').append(o)});
+ drawLatency();
+}
+async function choose(id,t=null,navigate=true){
+ const entry=catalog.find(r=>r.id===id);if(!entry){message('This run is not in outputs/index.json. Select an available output.');return}
+ const ticket=++request;pause();if(navigate&&selected&&selected.id!==id)history.pushState(null,'',location.href);selected=entry;time=Math.max(0,Number.isFinite(t)?t:0);list();link();message('Loading run…');
+  videoRequests.abort();videoRequests=new AbortController();
+  videos.forEach(({video,objectURL})=>{video.removeAttribute('src');video.load();if(objectURL)URL.revokeObjectURL(objectURL)});videos=[];$('cameras').replaceChildren();
+ try{
+  const [data,route,report]=await Promise.all([json(entry.directory+'/predictions.json',true),entry.demo?json(entry.demo+'/route.json'):null,json(entry.directory+'/comparison.json',true)]);
+  if(ticket!==request)return;
+  results=(data??[]).sort((a,b)=>a.time_us-b.time_us);manifest=route;summary=report??{};
+  duration=route?.duration_s??(route?.cameras?.length?Math.max(...route.cameras.map(c=>c.timestamps_us.at(-1)/1e6)):(results.at(-1)?.time_us/1e6||1));
+  if(t===null)time=(results[0]?.time_us??route?.predictions?.[0]?.time_us??0)/1e6;
+  time=Math.min(time,duration);
+  $('cameras').style.gridTemplateColumns=route?.cameras?.length===2?'repeat(2,1fr)':'';
+  $('title').textContent=entry.id;$('viewer').hidden=false;$('empty').hidden=true;$('seek').max=duration;
+  for(const camera of route?.cameras??[]){
+   const box=document.createElement('div'),video=document.createElement('video'),label=document.createElement('span'),missing=document.createElement('span');
+   box.className='camera';label.textContent=camera.file.replace(/\.[^.]+$/,'').replaceAll('_',' ');missing.className='missing';missing.textContent='No frame';
+   video.muted=true;video.playsInline=true;video.preload='auto';video.onloadedmetadata=()=>sync(true);
+   box.append(video,label,missing);$('cameras').append(box);
+   const feed={video,missing,camera,times:camera.timestamps_us.map(x=>x/1e6)};videos.push(feed);
+   loadVideo(feed,entry.demo+'/'+camera.file,videoRequests.signal);
+  }
+  stats();lastPrediction=-2;sync(true);drawPrediction();link();
+  message(!results.length?'Waiting for the first prediction. This view updates automatically.':!route?'This older output has no saved demo path; video is unavailable.':!summary.complete?'Partial run. New predictions appear automatically.':'');
+ }catch(e){if(ticket===request)message(e.message)}
+}
+async function loadVideo(feed,url,signal){
+ try{
+  // Simple static servers ignore Range. A local blob makes their videos seekable.
+  const response=await fetch(url,{headers:{Range:'bytes=0-0'},signal});
+  if(!response.ok)throw Error(`HTTP ${response.status}`);
+  if(response.status===206){await response.body.cancel();if(signal.aborted)return;feed.video.src=url}
+  else{const blob=await response.blob();if(signal.aborted)return;feed.objectURL=URL.createObjectURL(blob);feed.video.src=feed.objectURL}
+ }catch(e){if(!signal.aborted){feed.error=e.message;sync()}}
+}
+function sync(force=false){
+ for(const {video,missing,camera,times,error} of videos){
+   if(!video.readyState||video.error){video.style.visibility='hidden';missing.hidden=false;missing.textContent=error||video.error?.message||'Loading video…';continue}
+   missing.textContent='No frame';
+  const i=floor(times,time),valid=i>=0&&time-times[i]<=.15&&(!camera.valid_frames||camera.valid_frames[i]);
+  video.style.visibility=valid?'visible':'hidden';missing.hidden=valid;
+  let target=camera.playback_times_s&&i>=0?camera.playback_times_s[i]+Math.max(0,time-times[i]):Math.max(0,time-times[0]);
+  if(Number.isFinite(video.duration))target=Math.min(target,video.duration);
+   if(Number.isFinite(target)&&(force||(!video.seeking&&Math.abs(video.currentTime-target)>.12)))video.currentTime=target;
+  video.playbackRate=Number($('speed').value);
+  if(playing&&valid&&video.paused)video.play().catch(()=>{});else if(!playing||!valid)video.pause();
+ }
+}
+function go(t){time=Math.max(0,Math.min(duration,t));sync(true);lastPrediction=-2;drawPrediction();link()}
+function drawPath(r){
+ const ctx=$('trajectory').getContext('2d'),w=800,h=440;ctx.clearRect(0,0,w,h);
+ const curves=[[r?.xyz,'#72ded9'],[r?.stock?.xyz,'#f2b46e'],[r?.recorded_xyz,'#929da5']].filter(([a])=>a?.length),points=curves.flatMap(([a])=>a);
+ if(!points.length)return;
+ const xmin=Math.min(0,...points.map(p=>p[0])),xmax=Math.max(5,...points.map(p=>p[0])),ymin=Math.min(-2,...points.map(p=>p[1])),ymax=Math.max(2,...points.map(p=>p[1]));
+ const scale=Math.min((w-60)/(ymax-ymin),(h-60)/(xmax-xmin)),x=y=>w/2+((ymin+ymax)/2-y)*scale,y=x=>h-30-(x-xmin)*scale;
+ const step=xmax-xmin>60?20:5;ctx.strokeStyle='#2a3137';ctx.fillStyle='#929da5';ctx.font='12px system-ui';
+ for(let d=0;d<=xmax;d+=step){ctx.beginPath();ctx.moveTo(20,y(d));ctx.lineTo(w-20,y(d));ctx.stroke();ctx.fillText(d+' m',24,y(d)-5)}
+ for(const [a,color] of curves){ctx.strokeStyle=color;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x(0),y(0));a.forEach(p=>ctx.lineTo(x(p[1]),y(p[0])));ctx.stroke()}
+ ctx.fillStyle='#e6e9eb';ctx.fillRect(x(0)-4,y(0)-5,8,10);
+}
+function drawActions(r){
+ const ctx=$('actions').getContext('2d');ctx.clearRect(0,0,800,200);if(!r)return;
+ const max=Math.max(1,...r.actions.flat().map(Math.abs),...(r.stock?.actions??[]).flat().map(Math.abs));ctx.lineWidth=1.5;
+ [r.actions,r.stock?.actions].forEach((a,k)=>{if(!a)return;ctx.setLineDash(k?[7,5]:[]);['#72ded9','#c6a1ed'].forEach((color,j)=>{ctx.strokeStyle=color;ctx.beginPath();a.forEach((v,i)=>{const x=10+i/63*780,y=100-v[j]/max*85;i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.stroke()})});ctx.setLineDash([]);
+}
+function drawLatency(){
+ const ctx=$('latency').getContext('2d'),a=results.length>2?results.slice(2):results;ctx.clearRect(0,0,800,200);if(!a.length)return;
+ const max=Math.max(1.2,...a.map(r=>r.seconds)),y=v=>180-v/max*160;ctx.setLineDash([5,5]);ctx.strokeStyle='#55616a';ctx.beginPath();ctx.moveTo(10,y(1));ctx.lineTo(790,y(1));ctx.stroke();ctx.setLineDash([]);ctx.fillStyle='#929da5';ctx.fillText('1 second',10,y(1)-5);
+ ctx.strokeStyle='#72ded9';ctx.lineWidth=2;ctx.beginPath();a.forEach((r,i)=>{const x=10+i/Math.max(1,a.length-1)*780;i?ctx.lineTo(x,y(r.seconds)):ctx.moveTo(x,y(r.seconds))});ctx.stroke();
+}
+function drawPrediction(){
+ const i=floor(results.map(r=>r.time_us/1e6),time);if(i===lastPrediction)return;lastPrediction=i;const r=results[i];
+ $('window').value=i<0?'':String(i);$('prediction-time').textContent=r?`${(r.time_us/1e6).toFixed(2)}s · ${fmt(r.seconds)}s compute`:'';
+ $('reasoning').textContent=r?.text??'Waiting for the first recorded history window.';const c=r?.comparison;
+ $('metrics').textContent=c?`Average difference ${fmt(c.ade_m)} m · Final difference ${fmt(c.fde_m)} m\nAction RMSE ${fmt(c.action_rmse,5)} · Reasoning tokens ${c.tokens_match?'match':'differ'}`:selected?.setup.stock_reference?'Stock tinygrad reference, original BF16 weights, FP32 accumulation, ten steps.':r?'No stock comparison for this window. Generate the reference, then rerun this candidate.':'';
+ $('stock-reasoning').hidden=!r?.stock;$('stock-text').textContent=r?.stock?.text??'';drawPath(r);drawActions(r);
+}
+$('play').onclick=()=>{if(playing)pause();else{playing=true;$('play').textContent='Pause';sync()}};
+$('seek').oninput=()=>go(Number($('seek').value));$('speed').onchange=()=>sync();$('window').onchange=()=>go(results[Number($('window').value)].time_us/1e6);
+$('latency').onclick=e=>{const offset=results.length>2?2:0,n=results.length-offset;if(!n)return;const box=e.currentTarget.getBoundingClientRect(),i=Math.max(0,Math.min(n-1,Math.round((e.clientX-box.left)/box.width*(n-1))));go(results[offset+i].time_us/1e6)};
+window.onpopstate=()=>{const u=new URL(location.href);if(u.searchParams.has('run'))choose(u.searchParams.get('run'),u.searchParams.has('t')?Number(u.searchParams.get('t')):null,false)};
+$('permalink').onclick=()=>link();
+function tick(now){if(playing){time=Math.min(duration,time+Math.min((now-last)/1000,.1)*Number($('speed').value));if(time>=duration)pause();sync()}last=now;$('seek').value=time;$('clock').textContent=`${time.toFixed(2)} / ${duration.toFixed(2)} s`;drawPrediction();requestAnimationFrame(tick)}
+loadCatalog().catch(e=>message(e.message));requestAnimationFrame(tick);
+setInterval(async()=>{try{
+ const id=selected?.id;await loadCatalog();if(!id||selected?.id!==id)return;
+ const entry=catalog.find(r=>r.id===id);if(!entry||entry.updated===selected.updated)return;
+ const ticket=request,[data,report]=await Promise.all([json(entry.directory+'/predictions.json',true),json(entry.directory+'/comparison.json',true)]);
+ if(ticket!==request)return;selected=entry;results=(data??[]).sort((a,b)=>a.time_us-b.time_us);summary=report??{};stats();lastPrediction=-2;drawPrediction();list();message(summary.complete?'':'Partial run. New predictions appear automatically.');
+ }catch(e){message(e.message)}},5000);
+</script>
+</html>
