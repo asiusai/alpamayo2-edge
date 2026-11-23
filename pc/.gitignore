@@ -1,0 +1,10 @@
+# Local, regenerated or large: see README.md "Setup".
+/vendor/
+/assets/
+/cache/
+/objects/
+/data/
+/parity/
+/sim-out/
+/lab/gpu*/
+*.log

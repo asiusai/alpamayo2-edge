@@ -1,0 +1,1 @@
+{"gpu": 0, "mode": "live", "calls": 120, "wall_s": 18.93920438699979, "calls_per_s": 6.336063413644247, "ms_p50": 108.73608900010368, "ms_p90": 110.57615599993369, "ms_mean": 111.36812967497463, "vision_misses_mean": 0.0, "tokens_mean": 7.416666666666667, "prefix_ahead_mean": 2.0, "ahead_ms_p50": 45.362280499830376, "kfd_evicted_ms_after_load": 0, "kfd_evicted_ms_end": 0}

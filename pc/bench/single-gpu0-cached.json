@@ -1,0 +1,1 @@
+{"gpu": 0, "mode": "cached", "calls": 48, "wall_s": 3.980926714999896, "calls_per_s": 12.057494004885557, "ms_p50": 82.69635599981484, "ms_p90": 83.55987540003298, "ms_mean": 82.93341210414458, "vision_misses_mean": 0.0, "tokens_mean": 20.0, "prefix_ahead_mean": 2.0, "ahead_ms_p50": 0.000827000121716992, "kfd_evicted_ms_after_load": 0, "kfd_evicted_ms_end": 0}

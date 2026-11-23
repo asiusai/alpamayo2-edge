@@ -1,0 +1,1 @@
+{"gpu": 0, "mode": "sweep", "calls": 96, "wall_s": 31.608294535999903, "calls_per_s": 3.0371774690552162, "ms_p50": 322.3206725001546, "ms_p90": 355.44870449984955, "ms_mean": 329.2493571666834, "vision_misses_mean": 10.0, "tokens_mean": 15.229166666666666, "prefix_ahead_mean": 0.0, "ahead_ms_p50": 0.001027000052999938, "kfd_evicted_ms_after_load": 0, "kfd_evicted_ms_end": 0}

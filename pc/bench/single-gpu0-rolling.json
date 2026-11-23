@@ -1,0 +1,1 @@
+{"gpu": 0, "mode": "rolling", "calls": 120, "wall_s": 20.041842407999866, "calls_per_s": 5.987473484578494, "ms_p50": 163.52705650001553, "ms_p90": 164.56193230014833, "ms_mean": 166.03685447497583, "vision_misses_mean": 2.0, "tokens_mean": 7.416666666666667, "prefix_ahead_mean": 0.0, "ahead_ms_p50": 0.0009215000318363309, "kfd_evicted_ms_after_load": 0, "kfd_evicted_ms_end": 0}
