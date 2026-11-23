@@ -37,7 +37,7 @@ source env.sh      # PY = vendor/nvidia/.venv (NVIDIA 02f55a7; torch 2.8 CPU, av
 
 | Path | Content |
 | --- | --- |
-| `pc/openpilot` | `git archive caa346c94:openpilot selfdrive/alpamayo selfdrive/controls/lib/drive_helpers.py common cereal` of the fork, with the later changes named above, plus `cereal_imports/car.capnp`, three empty `__init__.py` files and the fork's `LICENSE`. Committed. |
+| `pc/openpilot` | `git archive caa346c94:openpilot selfdrive/alpamayo selfdrive/controls/lib/drive_helpers.py common cereal` of the fork, with the later changes named above, plus `cereal_imports/car.capnp`, three empty `__init__.py` files and the fork's `LICENSE`. Committed, without `common/hardware/comma/id_rsa` (upstream openpilot's public device setup key; the PC does not use it). |
 | `pc/vendor/tinygrad` | tinygrad `89846dcfb383a98ee01cfec3bba440ae7dcf9b1e`, git-clean (the runtime verifies the pin). |
 | `pc/vendor/nvidia` | NVIDIA alpamayo2-edge `02f55a7aeabc1a2b9f7a80445c08e40bddc89f5e` with its uv venv (copied from the relocated checkout; editable path updated). |
 | `pc/vendor/opendbc` | opendbc `27fa1c5d8eed3238a0a78c52ff5abb6cdc807bd2` (only for cereal and payload tools). |
