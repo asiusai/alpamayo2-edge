@@ -1,5 +1,25 @@
 # NVIDIA Alpamayo 2 Edge on tinygrad
 
+This repository holds Asius work on NVIDIA Alpamayo 2 Edge: a tinygrad demo, the car runtime on desktop GPUs, fine-tuning, and drive analysis.
+NVIDIA's code and weights are not included. Download them from NVIDIA under their licences.
+
+## Layout
+
+| Path | Content | Status |
+| --- | --- | --- |
+| `run.py`, `model.py`, `models/`, `server.py`, `index.html`, `data/demo*` | First tinygrad port and browser demo on six-camera clips. BF16, stock sampling. | Demo. Not the car recipe. |
+| [`pc/`](pc/README.md) | The car's selected runtime on two RX 7900 XTX GPUs (gfx1100, KFD). `pc/openpilot` is a snapshot of the car code. | **Current implementation** of the tinygrad runtime. The snapshot is older than the car code. |
+| [`train/`](train/README.md) | LoRA trainer for the action expert (PyTorch-ROCm), sampler and export. | Current. |
+| `finetune/` | Dataset builders, evaluators, export helpers and input tests. Documented in [`train/README.md`](train/README.md). | Current. |
+| `analysis/` | Drive analysis on openpilot logs, including the drive-test score `lanes_score.py`. | Current. |
+| [`kernels/`](kernels/REPORT.md) | GPU kernel review of 2026-11-23: report, per-kernel test loop, candidate kernel sources. | Reference. |
+
+The car runs the model code of the openpilot fork branch `alpamayo` (`openpilot/selfdrive/alpamayo`), now at `d1edf7aa8`.
+`pc/openpilot` is the `caa346c94` snapshot with later fine-tune pins. The update to the current car code (1 to 10 Euler steps, new expert layer,
+three kernel speedups of 2026-11-23) is not done: the first attempt did not reproduce the plans on gfx1100. `pc/README.md` has the facts.
+
+## Demo
+
 Requires Python 3.12, Git, and FFmpeg.
 
 ```sh

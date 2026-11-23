@@ -4,15 +4,17 @@ This runtime runs the car's selected Alpamayo recipe (openpilot `alpamayo-w4` at
 It has the same `rt.predict(sample)` contract as Chestnut. Use it for replays, input sweeps, and closed-loop simulation.
 It does not use or open the Chestnut USB device.
 
-Status: implemented and measured on 2026-11-21 (this text describes the `caa346c94` snapshot). It matches Chestnut on identical inputs below the input-noise level (see [Parity](#parity)).
+Status: implemented and measured on 2026-11-21. It matches Chestnut on identical inputs below the input-noise level (see [Parity](#parity)).
+The car code has moved on to `alpamayo` `d1edf7aa8`. The PC snapshot is not updated: see [Update to the current car code](#update-to-the-current-car-code-not-done).
 
 ## What runs
 
 | Part | PC implementation |
 | --- | --- |
-| Code | Unchanged `openpilot/selfdrive/alpamayo` from `caa346c94`, plus the adapter `pc/alpamayo_pc/port.py`. |
+| Code | `openpilot/selfdrive/alpamayo` from `caa346c94` plus the fork changes up to `2c1a5e198` (view FOV, fine-tune pins, power limit field), and the adapter `pc/alpamayo_pc/port.py`. |
+| Fine-tunes | `selected/assets/artifacts.json` is the `d1edf7aa8` file: it pins `t120-r16`, `t180-r16`, `dist-gt10`, `lat10` and `lat2r`. A pinned fine-tune runs with its FP8 cache and the base BF16 checkpoint. |
 | Weights | The car's pinned assets: compact BF16 checkpoint, FP8 `weights.bin` (GPU leaf-proof check), fixed prefill scales, car noise. |
-| Recipe | Unchanged: W4 serial MLP, FP8 activation and weight rounding, BF16 elsewhere, split prefill, 32 draft heads, 1 Euler step, greedy, 64 tokens. |
+| Recipe | Unchanged: W4 serial MLP, FP8 activation and weight rounding, BF16 elsewhere, split prefill, 32 draft heads, 1 to 3 Euler steps (default 1), greedy, 64 tokens. |
 | Frozen HIP kernels | The 48 gfx1200 sources compile for gfx1100 with `gfx11_shim.h`. The shim gives exact FP8 E4M3 conversion and gfx12 WMMA through gfx11 WMMA. |
 | FP8 tensor-core GEMMs | Operands convert exactly to BF16. Weights convert once at startup (4.6 GB). BF16 WMMA accumulates in FP32. |
 | Vision pair, projector, prefill MLP | The general tinygrad path of the same recipe replaces the fused gfx12 objects. This is 2-6x faster on gfx1100. |
@@ -35,13 +37,15 @@ source env.sh      # PY = vendor/nvidia/.venv (NVIDIA 02f55a7; torch 2.8 CPU, av
 
 | Path | Content |
 | --- | --- |
-| `pc/openpilot` | `git archive caa346c94 selfdrive/alpamayo selfdrive/controls/lib/drive_helpers.py common cereal` of the alpamayo-w4 worktree. |
+| `pc/openpilot` | `git archive caa346c94:openpilot selfdrive/alpamayo selfdrive/controls/lib/drive_helpers.py common cereal` of the fork, with the later changes named above, plus `cereal_imports/car.capnp`, three empty `__init__.py` files and the fork's `LICENSE`. Committed. |
 | `pc/vendor/tinygrad` | tinygrad `89846dcfb383a98ee01cfec3bba440ae7dcf9b1e`, git-clean (the runtime verifies the pin). |
 | `pc/vendor/nvidia` | NVIDIA alpamayo2-edge `02f55a7aeabc1a2b9f7a80445c08e40bddc89f5e` with its uv venv (copied from the relocated checkout; editable path updated). |
 | `pc/vendor/opendbc` | opendbc `27fa1c5d8eed3238a0a78c52ff5abb6cdc807bd2` (only for cereal and payload tools). |
-| `pc/assets` | `checkpoint` (compact, 120 MB), `fp8-cache` (`index.json`; `weights.bin` rebuilt with `tools/alpamayo-car/prepare-fp8.py` from the original checkpoint, sha256 `dd6b716a...` as pinned; leaf proofs), `fixed`, `geometry.json`. |
+| `pc/assets` | `checkpoint` (compact, 120 MB), `fp8-cache` (`index.json`; `weights.bin` rebuilt with `finetune/prepare-fp8.py` from the original checkpoint, sha256 `dd6b716a...` as pinned; leaf proofs), `fixed`, `geometry.json`. |
 | `pc/cache/gpuN` | tinygrad compile cache and persistent captured graphs, one per GPU. |
 | `pc/objects` | gfx1100 HIP objects, keyed by source hash. |
+
+Only `pc/openpilot`, the adapter, tools, lab snippets and bench results are in Git. `vendor`, `assets`, `data`, `cache`, `objects` and `parity` are local.
 
 Disk use in home: 10.5 GB runtime (7.1 GB venv, 3.0 GB assets, sources, caches), 36 GB data (`pc/data`: 30 GB sim payloads, 5 GB original checkpoint, 0.7 GB Karel plans), 0.9 GB parity inputs.
 Nothing under `/mnt/nvme-500/tmp` is needed: that folder is cleaned automatically.
@@ -53,7 +57,7 @@ Start a persistent lab (model loads in 12 s; first calls compile and capture gra
 
 ```sh
 cd ~/alpamayo2-edge/pc
-./lab_start.sh 0                 # GPU 0 -> lab/gpu0; ./lab_start.sh 1 for GPU 1. Optional: --warmup, --diffusion-steps 2
+./lab_start.sh 0                 # GPU 0 -> lab/gpu0; ./lab_start.sh 1 for GPU 1. Optional: --warmup, --diffusion-steps 2, --zero-noise
 ./lab.sh 0 lab/snippets/run_samples.py     # 48 Karel drive inputs, stage medians
 ./lab_stop.sh 0
 ```
@@ -79,14 +83,15 @@ Direct use from Python (one GPU per process):
 ```python
 import alpamayo_pc
 rt = alpamayo_pc.load(0)            # selected Runtime on GPU 0; same predict()/prime()/prefill_ahead()/reset()/close()
+# A pinned student: alpamayo_pc.load(0, diffusion_steps=2, zero_noise=True, fp8_cache=EXPORTS/'lat2r-fp8', cache_dir=alpamayo_pc.PC/'cache/lat2r-fp8-gpu0')
 p = rt.predict(sample)              # sample: image_frames (10,1,3,432,768) uint8, camera_indices, absolute_timestamps, ego_history_xyz/rot, nav_text
 ```
 
 Batch tools:
 
 ```sh
-$PY tools/run_samples.py --gpu 0 out.json SAMPLE.npz ...       # saved inputs -> predictions
-$PY tools/bench.py --gpu 0 --mode sweep|rolling|cached|live [--slots data/slots/ROUTE.npz]   # throughput and latency
+$PY tools/run_samples.py --gpu 0 [--diffusion-steps N] [--zero-noise] [--fp8-cache DIR] [--rounds N] out.json SAMPLE.npz ...   # saved inputs -> predictions
+$PY tools/bench.py --gpu 0 --mode sweep|rolling|cached|live [--slots data/slots/ROUTE.npz] [--diffusion-steps N] [--zero-noise]   # throughput and latency
 $PY tools/build_slots.py ROUTE data/slots/ROUTE.npz 20         # render consecutive 100 ms slots of a recorded route (CPU)
 $PY tools/compare_runs.py a.json b.json                          # ADE/FDE/heading/tokens between two runs
 $PY tools/extract_karel_frames.py ... ; lab/snippets + tools/karel_parity.py   # rebuild Karel plan inputs from footage (see file headers)
@@ -132,6 +137,14 @@ Evidence: `stats_<gpu>/evicted_ms` rose 313 ms during load and 944 ms in 32 call
 Fix in `port.py`: `PARALLEL=0`, source checks and the warp-sampler compile run before the device opens, and a fork hook logs any later fork.
 Result: `evicted_ms` stays 0 in load and runs (`bench.py` reports `kfd_evicted_ms_end`). Do not start subprocesses from a process that holds the GPU.
 
+Not fixed: evictions under host memory pressure. On 2026-11-23 other jobs kept the PC at load 45-55 with 0.3 GB free memory and
+constant page compaction (about 8,000 migrated pages per second). Every KFD process then collected evictions, including an idle PyTorch-ROCm import:
+`evicted_ms` rose to 6-25 s within minutes in runtime processes that started no child process.
+Two runs ended with the same MES failure and a GPU reset: GPU 0 at 14:31 (this snapshot, `tools/run_samples.py`) and GPU 1 at 15:07 (lab start).
+A reset on one GPU also ends the runtime process on the other GPU (KFD sends the hardware exception to every process).
+Probable cause: page migration invalidates the userptr buffers that tinygrad registers with KFD. This is not verified.
+Check `/sys/class/kfd/kfd/proc/<pid>/stats_*/evicted_ms` early in a run. Do not run the runtime while the PC is short of free memory.
+
 ## Parity
 
 All runs use the car noise (`8c29e314...`) and 1 Euler step. Distances are over the 64-point, 6.4 s trajectory.
@@ -155,38 +168,32 @@ Repeated PC runs with the same call history are bit-identical, and GPU 0 and GPU
 
 ## Training (LoRA) on these GPUs
 
-Facts: 2.65 B parameters (language 1.69 B including embeddings, LM head 0.28 B, vision 0.41 B, expert 0.20 B, projector 0.08 B).
-Each RX 7900 XTX has 24 GB and about 123 TFLOPS BF16 WMMA peak; the PC inference GEMMs reach 60-78 TFLOPS.
+Implemented in [`train/`](../train/README.md) with PyTorch-ROCm: LoRA rank 16 on the action expert, one process per GPU.
+The tinygrad runtime stays inference-only. It gives the frozen reasoning tokens for the training samples (`finetune/frozen.py`)
+and checks an exported fine-tune in the car recipe (`finetune/eval_runtime.py`).
 
-Recommendation: PyTorch-ROCm, not tinygrad.
-- The NVIDIA model, processor and losses are PyTorch (`alpamayo2_edge`, transformers). LoRA (peft) and the flow-matching loss need no port.
-- PyTorch-ROCm supports gfx1100. Use SDPA (AOTriton flash attention; may need `TORCH_ROCM_AOTRITON_ENABLE_EXPERIMENTAL=1`).
-- The tinygrad car runtime is inference-only: frozen kernels, FP8 scales, captured graphs, no backward.
+## Update to the current car code (not done)
 
-| Setup, per GPU | Memory (estimate) | Fits 24 GB |
-| --- | --- | --- |
-| Full fine-tune, BF16 weights and gradients, FP32 Adam (16 B/param) | 42 GB + activations | No |
-| LoRA r=16 on language q/k/v/o/fc1/fc2 (16.5 M) and expert linears (about 4 M): frozen BF16 base 5.3 GB, adapters + FP32 Adam 0.33 GB | 5.7 GB + activations | Yes |
-| Activations, 2112-token prompt, no checkpointing | about 170 MB per language layer: 4.7 GB per sample | batch 2-3 |
-| Same with per-layer gradient checkpointing | about 0.25 GB per sample + one layer recomputed | batch 8 (about 14 GB) |
+Status: attempted on 2026-11-23 and withdrawn. `pc/openpilot` stays at the snapshot named in [What runs](#what-runs).
 
-Vision stays frozen: cache its features per image (180 tokens x 2048 BF16 = 0.74 MB per image after the projector) so training never runs the 0.41 B vision tower.
-The config sets `cotrain_detach_expert_kv`: the expert's flow-matching loss does not reach the language model through the KV rows.
+The car code (`alpamayo` `7abef47a2`, pins from `d1edf7aa8`) adds since this snapshot:
+1 to 10 Euler steps, a dedicated expert layer (`expert_block`: merged Q/K/V GEMM with per-column weight scales, 24 launches per layer),
+the expert FC2 scale from the signed FC1 maximum, two new frozen vision attention objects with direct K/V loads,
+a vision FC1 GELU object without range scaling, `compute_profile`, planner lane centring, the navigation distance gate and the worker SIGUSR2 fix.
 
-Expected step time (estimate, not measured): language forward 2 x 1.4 B x 2112 tokens = 6 TFLOP per sample; backward through frozen
-weights about 2x forward; checkpointing adds one forward: about 24 TFLOP per sample. At 40-50 TFLOPS effective that is 0.5-0.6 s per
-sample per GPU: batch 8 takes about 4.5 s per step per GPU, about 3.5 samples/s with DDP on both GPUs (LoRA all-reduce about 80 MB).
-Without cached vision features add about 6.5 TFLOP forward per 10-image sample (+0.15 s).
+Facts from the attempt (new archive in `pc/openpilot`, adapter with BF16 copies of the merged expert Q/K/V weights):
+- The three new frozen sources compile for gfx1100 with `gfx11_shim.h`. All source patches of `port.py` still apply.
+- The runtime started, captured its graphs and gave 48 of 48 plans on the Karel parity inputs (1 step, pinned noise, GPU 1).
+- The plans do not match this snapshot's stored run (`parity/karel/pc-gpu1-caa346c94.json`): same tokens on 46 of 48 inputs,
+  but ADE median 0.62 m, p90 1.20 m, max 5.1 m; FDE median 2.0 m; heading difference median 4.1 degrees. No trajectory was bit-equal.
+  The accepted level is the Chestnut parity above (ADE median 0.05 m). On the car the same code change is bit-identical.
+- The difference is in the expert on gfx1100. The first suspect is the merged Q/K/V GEMM: `column_scale=True` never ran on the PC default path before. This is not confirmed.
+- No valid timing exists. Host load made CPU stages 3 to 30 times slower (preprocess 414 ms instead of 13 ms).
+  GPU-bound stages of the new code: vision 175 ms (this snapshot 166 ms), prefill 116 ms (104 ms), both under load. No 10-step run was made.
+- The diagnosis stopped after the second GPU reset of the day (see [GPU faults](#gpu-faults-fixed)).
 
-Plan:
-1. Build a pinned PyTorch-ROCm 6.4 venv (exact torch/torchvision/peft/transformers versions, uv lock, about 5 GB in home).
-2. Data: rebuild inputs from Karel footage with `tools/build_slots.py` and `tools/extract_karel_frames.py`; targets are the logged
-   future poses (as `sim.py` `logged_pose`), optionally the car's reasoning text. Cache vision features once per image.
-3. Train LoRA (r=16, alpha 32, BF16, AdamW lr 1e-4) on the flow-matching action loss plus text cross-entropy, DDP on GPU 0 and 1.
-4. Merge the adapters, rebuild the FP8 cache and W4 weights with the car's preparation (`prepare-fp8.py`, startup W4 packing),
-   update the pinned digests, then qualify on the PC with `run_samples.py`, `compare_runs.py`, and the closed-loop sim before any car use.
-
-⚠ **Decision needed:** whether to build the PyTorch-ROCm training environment now, and which Karel routes and targets (driven path only, or also reasoning text) to train on.
+Needed to finish: a PC without memory pressure; compare the merged Q/K/V GEMM with three separate GEMMs on the same input; fix the adapter;
+then repeat the 48-input comparison and the timing at 1 and 10 steps before and after.
 
 ## Open problems
 
@@ -199,4 +206,5 @@ Plan:
   Not yet compared with a Karel sim run of the same routes and code.
 - The frozen vision attention, expert attention and serial-decode objects still run through `gfx11_shim.h`.
 - First use of each new input shape set captures graphs for minutes per GPU (in-process compile, `PARALLEL=0`). Captured graphs persist in `pc/cache/gpuN/graphs`.
+  The update attempt removed the stored graphs of GPU 1; the next run captures them again.
 - `/mnt/nvme-500/tmp` is cleaned automatically; everything the runtime needs is under `pc/`. `tools/turn_accuracy.py` needs the deleted turn samples.

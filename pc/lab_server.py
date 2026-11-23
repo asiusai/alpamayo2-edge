@@ -3,7 +3,7 @@
 Same snippet contract as tools/alpamayo-car/bench/lab_server.py on the device: each LAB/in/*.py runs in a shared
 namespace with `rt` (selected Runtime), `np`, `Tensor`, `dtypes`, `timeit(fn, n)`, `lab_import(name)` and `GPU`.
 Output goes to LAB/out/<name>.txt, ending with `== done` or `== error`.
-Usage: python lab_server.py --gpu 0 [--lab DIR] [--warmup] [--diffusion-steps N]
+Usage: python lab_server.py --gpu 0 [--lab DIR] [--warmup] [--diffusion-steps N] [--zero-noise]
 """
 import argparse, contextlib, importlib, io, sys, time, traceback
 from pathlib import Path
@@ -17,6 +17,7 @@ def main():
   parser.add_argument('--lab', type=Path)
   parser.add_argument('--warmup', action='store_true', help='compile and capture every steady-state graph shape first')
   parser.add_argument('--diffusion-steps', type=int, default=1)
+  parser.add_argument('--zero-noise', action='store_true', help='zero initial noise, as on the car')
   args = parser.parse_args()
   lab = args.lab or PC/'lab'/f'gpu{args.gpu}'
   for sub in ('in', 'out', 'src'):
@@ -26,7 +27,7 @@ def main():
   sys.path.insert(0, str(PC/'tools'))
   started = time.monotonic()
   import alpamayo_pc
-  rt = alpamayo_pc.load(args.gpu, warmup=args.warmup, diffusion_steps=args.diffusion_steps)
+  rt = alpamayo_pc.load(args.gpu, warmup=args.warmup, zero_noise=args.zero_noise, diffusion_steps=args.diffusion_steps)
   import numpy as np
   from tinygrad import Tensor, dtypes
 

@@ -66,9 +66,11 @@ def main():
   parser.add_argument('--verbose', action='store_true')
   parser.add_argument('--slots', type=Path, help='build_slots.py output: realistic consecutive slots for rolling/live')
   parser.add_argument('--start-at', type=float, default=0, help='wall-clock time to start measuring (aligns two GPUs)')
+  parser.add_argument('--diffusion-steps', type=int, default=1, help='Euler steps of the trajectory expert (1 to 3 in this snapshot)')
+  parser.add_argument('--zero-noise', action='store_true', help='zero initial noise, as on the car')
   args = parser.parse_args()
   import alpamayo_pc
-  rt = alpamayo_pc.load(args.gpu)
+  rt = alpamayo_pc.load(args.gpu, zero_noise=args.zero_noise, diffusion_steps=args.diffusion_steps)
   rt.stage_sync = False
   from tinygrad import Device
   stats = Path(f'/sys/class/kfd/kfd/proc/{os.getpid()}/stats_{Device["AMD"].iface.gpu_id}/evicted_ms')
@@ -109,7 +111,7 @@ def main():
     if args.verbose:
       print(len(times), f'{times[-1]:.1f} ms', rt.metrics.vision_misses, p['generated_tokens'], flush=True)
   wall = time.perf_counter()-begin
-  result = dict(gpu=args.gpu, mode=args.mode, calls=args.calls, wall_s=wall, calls_per_s=args.calls/wall,
+  result = dict(gpu=args.gpu, mode=args.mode, diffusion_steps=args.diffusion_steps, calls=args.calls, wall_s=wall, calls_per_s=args.calls/wall,
                 ms_p50=float(np.median(times)), ms_p90=float(np.percentile(times, 90)), ms_mean=float(np.mean(times)),
                 vision_misses_mean=float(np.mean(misses)), tokens_mean=float(np.mean(tokens)),
                 prefix_ahead_mean=float(np.mean(ahead_parts)), ahead_ms_p50=float(np.median(ahead_ms)),

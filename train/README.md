@@ -3,7 +3,7 @@
 This document covers `train/`, `finetune/` and `analysis/`.
 The students are LoRA adapters on the action expert. They make the two-camera car setup drive closer to the lane centre and turn fully.
 
-Status: implemented and used. `lat10` runs on the car (Karel). `lat2r` is the best offline student; it is not road-tested.
+Status: implemented and used. `lat10` ran on the car (Karel) on 2026-11-23. `lat2r` is the current candidate: it has the best offline result and is staged on the car. It is not road-tested.
 
 ## What a student is
 
@@ -23,10 +23,10 @@ Train and run with the same step count. A student trained with a 1-step car loss
 | Name | Euler steps | Lateral loss | Manifest | Use |
 | --- | --- | --- | --- | --- |
 | `dist-gt10` | 10 | no | `nv15` | Pinned in the runtime. |
-| `lat10` | 10 | yes | `nv15` | Pinned in the runtime. Runs on the car. |
+| `lat10` | 10 | yes | `nv15` | Pinned in the runtime. Road-tested on 2026-11-23. |
 | `dist-gt2` | 2 | no | `nv15` | Offline only. |
 | `lat2` | 2 | yes | `nv15` | Offline only. |
-| `lat2r` | 2 | yes | `nv15rec` | Best offline result. Not pinned, not road-tested. |
+| `lat2r` | 2 | yes | `nv15rec` | **Current candidate.** Pinned in the runtime (`alpamayo` `d1edf7aa8`) and staged on the car. Not road-tested. |
 
 `nv15` is the 6,350 PhysicalAI training samples drawn 1.5 times (9,525 lines; 6,011 clean and 3,514 recovery lines).
 `nv15rec` adds 3,500 synthetic recovery samples from Karel drives (`finetune/samples.py --recovery`).
@@ -46,7 +46,7 @@ plan offset from the lane centre at x = keep x car offset + bias. The car settle
 | `lat10` | 0.90/0.68/0.49 | -0.02/-0.07/-0.10 | -0.26/-0.21/-0.20 | 0.36 |
 | `dist-gt2` | 0.89/0.62/0.45 | -0.02/-0.06/-0.07 | -0.17/-0.15/-0.13 | 0.46 |
 | `lat2` | 0.89/0.66/0.44 | -0.05/-0.12/-0.21 | -0.43/-0.36/-0.38 | 0.38 |
-| `lat2r` | 0.90/0.69/0.48 | -0.01/0.00/+0.01 | -0.06/-0.02/+0.03 | 0.31 |
+| `lat2r` (current candidate) | 0.90/0.69/0.48 | -0.01/0.00/+0.01 | -0.06/-0.02/+0.03 | 0.31 |
 
 Heldout sets (`finetune/nv_distill_score.py` on PhysicalAI clips, `finetune/score.py` on Karel turns):
 
@@ -58,7 +58,7 @@ Heldout sets (`finetune/nv_distill_score.py` on PhysicalAI clips, `finetune/scor
 | `lat10` | 0.86 | 0.13 | 0.83/0.52/0.34 | 0.82 | 0.58 |
 | `dist-gt2` | 0.93 | 0.18 | 0.90/0.73/0.60 | 0.94 | 0.78 |
 | `lat2` | 0.89 | 0.14 | 0.83/0.53/0.36 | 0.89 | 0.68 |
-| `lat2r` | 0.88 | 0.15 | 0.79/0.47/0.26 | 0.85 | 0.66 |
+| `lat2r` (current candidate) | 0.88 | 0.15 | 0.79/0.47/0.26 | 0.85 | 0.66 |
 
 Road test of `lat10` (2026-11-23, about 85 km/h, 3.4 m lanes, no lane centring): the car settled 0.31 m left of the lane centre.
 The drive-test score had predicted 0.20-0.26 m. Stock settled 0.41 m left. Planner lane centring removed the offset (0.01 m right).
@@ -155,7 +155,8 @@ $F/export_local.sh lat10      # export.py (merged BF16 checkpoint) + prepare-fp8
 
 The script prints `fp8_index_sha256` and `fp8_weights_sha256`. The runtime accepts a fine-tune only when
 `selected/assets/artifacts.json` lists these digests under `fp8_finetunes`. `finetune/export_and_pin.sh` adds the pin in an openpilot checkout.
-Run a pinned fine-tune on the PC with `alpamayo_pc.load(gpu, fp8_cache=$A/exports/lat10-fp8, cache_dir=...)` (see `pc/README.md`).
+Run a pinned fine-tune on the PC with `alpamayo_pc.load(gpu, diffusion_steps=2, zero_noise=True, fp8_cache=$A/exports/lat2r-fp8, cache_dir=...)`.
+The PC snapshot accepts 1 to 3 Euler steps, so it cannot run the 10-step students at their step count (see `pc/README.md`).
 
 ## Files
 

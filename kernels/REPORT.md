@@ -1,7 +1,7 @@
 # Alpamayo GPU kernel optimization on Karel, 2026-11-23
 
 Status: finished 2026-11-23. The three bit-exact wins (section 7 A and B) and the opt-in `compute_profile` option (7 C) are in the
-openpilot fork (`alpamayo` `8400cc92a`) and in `pc/openpilot` of this repository. Road validation is not done.
+openpilot fork (`alpamayo` `8400cc92a`). `pc/openpilot` of this repository does not have them yet (see `pc/README.md`). Road validation is not done.
 
 Device: Karel (Dragon + Chestnut RX 9060, USB+AMD tinygrad backend), 100 W power limit, stock weights, 10 diffusion steps.
 Code under test: openpilot `alpamayo` `0b3ebf0d7`.

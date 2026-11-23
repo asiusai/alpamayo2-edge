@@ -25,12 +25,16 @@ def main():
   parser.add_argument('--rounds', type=int, default=1)
   parser.add_argument('--zero-noise', action='store_true')
   parser.add_argument('--cache-dir', type=Path, help='PC GPU cache directory (default pc/cache/gpuN)')
+  parser.add_argument('--fp8-cache', type=Path, help='FP8 cache of a pinned fine-tune (PC GPU only)')
   parser.add_argument('out', type=Path)
   parser.add_argument('samples', nargs='+', type=Path)
   args = parser.parse_args()
   if args.gpu is not None:
     import alpamayo_pc
     extra = {} if args.cache_dir is None else {'cache_dir': args.cache_dir}
+    if args.fp8_cache is not None:  # a pinned fine-tune: its own graph cache, the base BF16 checkpoint
+      extra.update(fp8_cache=args.fp8_cache)
+      extra.setdefault('cache_dir', PC/'cache'/f'{args.fp8_cache.name}-gpu{args.gpu}')
     rt = alpamayo_pc.load(args.gpu, diffusion_steps=args.diffusion_steps, **extra)
   else:
     from openpilot.selfdrive.alpamayo.selected import Config, Runtime
