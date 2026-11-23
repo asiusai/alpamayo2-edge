@@ -1,0 +1,43 @@
+[project]
+name = "alpamayo-train"
+version = "0.1.0"
+description = "LoRA fine-tuning of the Alpamayo 2 Edge action expert on RX 7900 XTX (gfx1100, PyTorch-ROCm)"
+requires-python = "==3.12.*"
+# Versions match NVIDIA alpamayo2-edge 02f55a7 uv.lock; torch/torchvision use the ROCm 6.4 builds of the same release.
+dependencies = [
+  "torch==2.8.0+rocm6.4",
+  "torchvision==0.23.0+rocm6.4",
+  "pytorch-triton-rocm==3.4.0",
+  "transformers==5.17.0",
+  "tokenizers==0.23.2",
+  "accelerate==1.15.0",
+  "huggingface-hub==1.33.0",
+  "safetensors==0.8.0",
+  "einops==0.8.2",
+  "hydra-core==1.3.7",
+  "omegaconf==2.3.1",
+  "antlr4-python3-runtime==4.9.3",
+  "numpy==2.5.3",
+  "pillow==12.3.0",
+  "scipy==1.18.1",
+  "colorlog==6.12.0",
+]
+
+[tool.uv]
+package = false
+python-downloads = "never"
+# Two-week cooldown for newly published PyPI releases.
+exclude-newer = "2026-11-07T00:00:00Z"
+# Build the reviewed antlr4 4.9.3 sdist with the locked setuptools from this venv, not an unlocked isolated build env.
+no-build-isolation-package = ["antlr4-python3-runtime"]
+# Only the reviewed antlr4-python3-runtime 4.9.3 sdist (hydra dependency, pure Python setup.py) may build.
+
+[tool.uv.sources]
+torch = { index = "pytorch-rocm64" }
+torchvision = { index = "pytorch-rocm64" }
+pytorch-triton-rocm = { index = "pytorch-rocm64" }
+
+[[tool.uv.index]]
+name = "pytorch-rocm64"
+url = "https://download.pytorch.org/whl/rocm6.4"
+explicit = true

@@ -1,0 +1,31 @@
+#!/bin/bash
+# Export a LoRA run to the car's FP8 cache and check that only expert layers differ from the base cache. No pin, no commit.
+# Usage: export_local.sh RUN_NAME
+set -euo pipefail
+NAME=$1
+A=/mnt/nvme-500/alpamayo-train; E=$A/exports
+F=$(cd "$(dirname "$0")" && pwd); REPO=$(dirname "$F")   # finetune/ and the alpamayo2-edge checkout
+[ -f $A/runs/$NAME/final/adapter.json ] || { echo "no final adapter for $NAME"; exit 1; }
+cd $REPO/train && source env.sh
+[ -d $E/$NAME ] || nice $PY export.py $A/runs/$NAME/final $E/$NAME | grep -E "fp8_retained"
+cd $F && source $REPO/pc/env.sh
+[ -f $E/$NAME-fp8/weights.bin ] || nice $PY prepare-fp8.py $E/$NAME $E/$NAME-fp8 | tail -1
+python3 - "$NAME" "$REPO" <<'PY'
+import json, hashlib, sys, re
+from pathlib import Path
+import numpy as np
+name = sys.argv[1]
+E = Path('/mnt/nvme-500/alpamayo-train/exports'); base = Path(sys.argv[-1])/'pc/assets/fp8-cache'
+ia, ib = json.loads((base/'index.json').read_text()), json.loads((E/f'{name}-fp8/index.json').read_text())
+key = 'records' if 'records' in ia else 'tensors'
+ra = {r['name']+'|'+r['kind']: r for r in ia[key]}; rb = {r['name']+'|'+r['kind']: r for r in ib[key]}
+ma, mb = np.memmap(base/'weights.bin', np.uint8, 'r'), np.memmap(E/f'{name}-fp8/weights.bin', np.uint8, 'r')
+changed = 0
+for k, r in ra.items():
+  s = rb[k]
+  assert (r['offset'], r['nbytes']) == (s['offset'], s['nbytes']), k
+  if not np.array_equal(ma[r['offset']:r['offset']+r['nbytes']], mb[s['offset']:s['offset']+s['nbytes']]):
+    assert re.match(r'expert\.expert\.layers\.\d+\.(self_attn\.[qkvo]_proj|mlp\.fc[12])\.weight\|', k), f'non-expert change: {k}'
+    changed += 1
+print(json.dumps({'name': name, 'changed_records': changed, 'fp8_index_sha256': hashlib.sha256((E/f'{name}-fp8/index.json').read_bytes()).hexdigest(), 'fp8_weights_sha256': ib['sha256']}))
+PY
